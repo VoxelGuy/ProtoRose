@@ -23,7 +23,7 @@
       overflow: hidden;
       border-radius: 12px;
     }
-    #flower {
+    .flower {
       position: absolute;
       font-size: 48px;
       transition: top 0.6s ease, left 0.6s ease;
@@ -32,9 +32,8 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script>
     $(document).ready(function(){
-      function moveFlower() {
+      function moveFlower(flower) {
         const container = $('#container');
-        const flower = $('#flower');
 
         const maxX = container.width() - flower.outerWidth();
         const maxY = container.height() - flower.outerHeight();
@@ -48,21 +47,26 @@
         });
       }
 
-      // Place la fleur au centre au début
-      const flower = $('#flower');
-      flower.css({
-        left: ($('#container').width() - flower.outerWidth()) / 2 + 'px',
-        top: ($('#container').height() - flower.outerHeight()) / 2 + 'px'
+      // Place les fleurs au centre au début
+      const flowers = $('.flower');
+      flowers.each(function(){
+        const f = $(this);
+        f.css({
+          left: ($('#container').width() - f.outerWidth()) / 2 + 'px',
+          top: ($('#container').height() - f.outerHeight()) / 2 + 'px'
+        });
       });
 
-      // Déplace la fleur toutes les 1.5 secondes
-      setInterval(moveFlower, 1500);
+      // Déplace les fleurs toutes les 1.5 secondes
+      setInterval(function(){ moveFlower($('#flower1')); }, 1500);
+      setInterval(function(){ moveFlower($('#flower2')); }, 1500);
     });
   </script>
 </head>
 <body>
   <div id="container">
-    <div id="flower">🌸</div>
+    <div id="flower1" class="flower">🌹</div>
+    <div id="flower2" class="flower">🌹</div>
   </div>
 </body>
 </html>
