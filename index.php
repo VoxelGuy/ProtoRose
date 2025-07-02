@@ -28,8 +28,8 @@
       position: relative;
       width: 1080px;
       height: 1920px;
-      max-width: 90vw;
       max-height: 90vh;
+      max-width: calc(90vh * (1080 / 1920));
       border-radius: 12px;
       overflow: hidden;
       background-color: #cfe8cf;
@@ -117,9 +117,26 @@
       const game = new Phaser.Game(config);
       let scene;
       const flowers = [];
-      let flowerCount = 0;
       const overlay = document.getElementById('overlays');
+      overlay.style.transformOrigin = 'top left';
+      resize();
+      const names = ['Alice','Bob','Chlo\u00e9','Damien','Emma','Felix','Gaston','H\u00e9l\u00e8ne','Iris','Julien','Karim','Laura','M\u00e9lanie','Nina','Oscar','Paul','Quentin','Rita','Sophie','Tom','Ulysse','Val\u00e9rie','William','Xavier','Yasmine','Zo\u00e9'];
       let cake = null;
+
+      function randomName(){
+        return names[Math.floor(Math.random()*names.length)];
+      }
+
+      function resize(){
+        const ratio = 1080/1920;
+        const h = window.innerHeight * 0.9;
+        const w = h * ratio;
+        const wrapper = document.getElementById('game-wrapper');
+        wrapper.style.height = h + 'px';
+        wrapper.style.width = w + 'px';
+        overlay.style.transform = 'scale(' + (h/1920) + ')';
+      }
+      window.addEventListener('resize', resize);
 
       function randomPos(size){
         return {
@@ -135,7 +152,7 @@
         el.setOrigin(0);
         const panel = document.createElement('div');
         panel.className = 'panel';
-        const name = 'Rose ' + (++flowerCount);
+        const name = randomName();
         const love = Math.random();
         const anger = Math.random();
         panel.innerHTML = `${name}
