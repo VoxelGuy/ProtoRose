@@ -28,8 +28,8 @@
       position: relative;
       width: 1080px;
       height: 1920px;
-      max-width: 90vw;
       max-height: 90vh;
+      max-width: calc(90vh * (1080 / 1920));
       border-radius: 12px;
       overflow: hidden;
       background-color: #cfe8cf;
@@ -47,7 +47,7 @@
       width: 100%;
       height: 100%;
       pointer-events: none;
-      font-size: 12px;
+      font-size: 18px;
     }
 
     #controls {
@@ -72,12 +72,12 @@
       background: rgba(255,255,255,0.8);
       padding: 2px 4px;
       border-radius: 4px;
-      width: 70px;
+      width: 100px;
     }
 
     .bar {
-      width: 60px;
-      height: 5px;
+      width: 90px;
+      height: 7px;
       background: #ddd;
       margin-top: 2px;
     }
@@ -117,9 +117,28 @@
       const game = new Phaser.Game(config);
       let scene;
       const flowers = [];
-      let flowerCount = 0;
       const overlay = document.getElementById('overlays');
-      let cake = null;
+      overlay.style.transformOrigin = 'top left';
+      resize();
+      const names = ['Alice','Bob','Chlo\u00e9','Damien','Emma','Felix','Gaston','H\u00e9l\u00e8ne','Iris','Julien','Karim','Laura','M\u00e9lanie','Nina','Oscar','Paul','Quentin','Rita','Sophie','Tom','Ulysse','Val\u00e9rie','William','Xavier','Yasmine','Zo\u00e9'];
+      const cakes = [];
+      const FLOWER_SIZE = 72;
+      const BAR_WIDTH = 90;
+
+      function randomName(){
+        return names[Math.floor(Math.random()*names.length)];
+      }
+
+      function resize(){
+        const ratio = 1080/1920;
+        const h = window.innerHeight * 0.9;
+        const w = h * ratio;
+        const wrapper = document.getElementById('game-wrapper');
+        wrapper.style.height = h + 'px';
+        wrapper.style.width = w + 'px';
+        overlay.style.transform = 'scale(' + (h/1920) + ')';
+      }
+      window.addEventListener('resize', resize);
 
       function randomPos(size){
         return {
@@ -129,18 +148,18 @@
       }
 
       function createFlower(){
-        const size = 48;
+        const size = FLOWER_SIZE;
         const pos = randomPos(size);
         const el = scene.add.text(pos.x, pos.y, '🌹', {fontSize: size + 'px'});
         el.setOrigin(0);
         const panel = document.createElement('div');
         panel.className = 'panel';
-        const name = 'Rose ' + (++flowerCount);
+        const name = randomName();
         const love = Math.random();
         const anger = Math.random();
         panel.innerHTML = `${name}
-          <div class="bar love"><div style="width:${love*60}px;background:#e91e63"></div></div>
-          <div class="bar anger"><div style="width:${anger*60}px;background:#ff5722"></div></div>
+          <div class="bar love"><div style="width:${love*BAR_WIDTH}px;background:#e91e63"></div></div>
+          <div class="bar anger"><div style="width:${anger*BAR_WIDTH}px;background:#ff5722"></div></div>
           <div class="bar hunger"><div></div></div>`;
         overlay.appendChild(panel);
 
@@ -160,16 +179,15 @@
       }
 
       function spawnCake(){
-        if(cake){ cake.obj.destroy(); }
         const size = 40;
         const pos = randomPos(size);
         const el = scene.add.text(pos.x, pos.y, '🍰', {fontSize: size + 'px'});
         el.setOrigin(0);
-        cake = {obj: el, x: pos.x, y: pos.y};
+        cakes.push({obj: el, x: pos.x, y: pos.y});
       }
 
       function showEffect(x, y, emoji){
-        const txt = scene.add.text(x, y, emoji, {fontSize: '32px'});
+        const txt = scene.add.text(x, y, emoji, {fontSize: '48px'});
         txt.setOrigin(0.5);
         scene.tweens.add({
           targets: txt,
@@ -221,38 +239,41 @@
           let moveX = f.dx;
           let moveY = f.dy;
 
-          if(cake){
-            const dist = distance(f, cake);
-            if(dist < 150){
-              const dx = cake.x - f.x; const dy = cake.y - f.y;
-              moveX = (dx/dist)*2; moveY = (dy/dist)*2;
-              f.dx = moveX; f.dy = moveY;
-              if(dist < 30){
-                f.hunger = Math.min(100, f.hunger + 50);
-                cake.obj.destroy();
-                cake = null;
-              }
+          let target = null;
+          let minDist = Infinity;
+          cakes.forEach(c => {
+            const dist = distance(f, c);
+            if(dist < minDist){ minDist = dist; target = c; }
+          });
+          if(target && minDist < 150){
+            const dx = target.x - f.x; const dy = target.y - f.y;
+            moveX = (dx/minDist)*2; moveY = (dy/minDist)*2;
+            f.dx = moveX; f.dy = moveY;
+            if(minDist < 30){
+              f.hunger = Math.min(100, f.hunger + 50);
+              target.obj.destroy();
+              cakes.splice(cakes.indexOf(target),1);
             }
           }
 
-          if(f.hunger <= 0 && !(cake && distance(f, cake) < 150)){
+          if(f.hunger <= 0 && !(target && minDist < 150)){
             moveX = 0; moveY = 0;
           }
 
           f.x += moveX; f.y += moveY;
-          if(f.x<0||f.x>w-48) f.dx=-f.dx;
-          if(f.y<0||f.y>h-48) f.dy=-f.dy;
-          f.x=Math.max(0,Math.min(w-48,f.x));
-          f.y=Math.max(0,Math.min(h-48,f.y));
+          if(f.x<0||f.x>w-FLOWER_SIZE) f.dx=-f.dx;
+          if(f.y<0||f.y>h-FLOWER_SIZE) f.dy=-f.dy;
+          f.x=Math.max(0,Math.min(w-FLOWER_SIZE,f.x));
+          f.y=Math.max(0,Math.min(h-FLOWER_SIZE,f.y));
           f.obj.setPosition(f.x, f.y);
-          f.panel.style.transform = `translate(${f.x + 52}px, ${f.y}px)`;
+          f.panel.style.transform = `translate(${f.x + FLOWER_SIZE + 4}px, ${f.y}px)`;
           const bar = f.panel.querySelector('.bar.hunger div');
-          if(bar) bar.style.width = `${f.hunger * 0.6}px`;
+          if(bar) bar.style.width = `${f.hunger * (BAR_WIDTH/100)}px`;
         });
 
         for(let i=0;i<flowers.length;i++){
           for(let j=i+1;j<flowers.length;j++){
-            if(distance(flowers[i],flowers[j])<48){
+            if(distance(flowers[i],flowers[j])<FLOWER_SIZE){
               handleCollision(flowers[i],flowers[j]);
             }
           }
