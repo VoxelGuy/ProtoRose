@@ -70,16 +70,16 @@
     .panel {
       position: absolute;
       background: rgba(255,255,255,0.8);
-      padding: 2px 4px;
+      padding: 6px 8px;
       border-radius: 4px;
-      width: 70px;
+      width: 210px;
     }
 
     .bar {
-      width: 60px;
-      height: 5px;
+      width: 180px;
+      height: 15px;
       background: #ddd;
-      margin-top: 2px;
+      margin-top: 6px;
     }
 
     .bar div {
@@ -116,6 +116,11 @@
 
       const game = new Phaser.Game(config);
       let scene;
+      const FLOWER_SIZE = 144;
+      const CAKE_SIZE = 80;
+      const PANEL_OFFSET = FLOWER_SIZE + 4;
+      const BAR_WIDTH = 180;
+      const HUNGER_FACTOR = BAR_WIDTH / 100;
       const flowers = [];
       const overlay = document.getElementById('overlays');
       overlay.style.transformOrigin = 'top left';
@@ -146,7 +151,7 @@
       }
 
       function createFlower(){
-        const size = 48;
+        const size = FLOWER_SIZE;
         const pos = randomPos(size);
         const el = scene.add.text(pos.x, pos.y, '🌹', {fontSize: size + 'px'});
         el.setOrigin(0);
@@ -156,8 +161,8 @@
         const love = Math.random();
         const anger = Math.random();
         panel.innerHTML = `${name}
-          <div class="bar love"><div style="width:${love*60}px;background:#e91e63"></div></div>
-          <div class="bar anger"><div style="width:${anger*60}px;background:#ff5722"></div></div>
+          <div class="bar love"><div style="width:${love*BAR_WIDTH}px;background:#e91e63"></div></div>
+          <div class="bar anger"><div style="width:${anger*BAR_WIDTH}px;background:#ff5722"></div></div>
           <div class="bar hunger"><div></div></div>`;
         overlay.appendChild(panel);
 
@@ -178,7 +183,7 @@
 
       function spawnCake(){
         if(cake){ cake.obj.destroy(); }
-        const size = 40;
+        const size = CAKE_SIZE;
         const pos = randomPos(size);
         const el = scene.add.text(pos.x, pos.y, '🍰', {fontSize: size + 'px'});
         el.setOrigin(0);
@@ -257,19 +262,19 @@
           }
 
           f.x += moveX; f.y += moveY;
-          if(f.x<0||f.x>w-48) f.dx=-f.dx;
-          if(f.y<0||f.y>h-48) f.dy=-f.dy;
-          f.x=Math.max(0,Math.min(w-48,f.x));
-          f.y=Math.max(0,Math.min(h-48,f.y));
+          if(f.x<0||f.x>w-FLOWER_SIZE) f.dx=-f.dx;
+          if(f.y<0||f.y>h-FLOWER_SIZE) f.dy=-f.dy;
+          f.x=Math.max(0,Math.min(w-FLOWER_SIZE,f.x));
+          f.y=Math.max(0,Math.min(h-FLOWER_SIZE,f.y));
           f.obj.setPosition(f.x, f.y);
-          f.panel.style.transform = `translate(${f.x + 52}px, ${f.y}px)`;
+          f.panel.style.transform = `translate(${f.x + PANEL_OFFSET}px, ${f.y}px)`;
           const bar = f.panel.querySelector('.bar.hunger div');
-          if(bar) bar.style.width = `${f.hunger * 0.6}px`;
+          if(bar) bar.style.width = `${f.hunger * HUNGER_FACTOR}px`;
         });
 
         for(let i=0;i<flowers.length;i++){
           for(let j=i+1;j<flowers.length;j++){
-            if(distance(flowers[i],flowers[j])<48){
+            if(distance(flowers[i],flowers[j])<FLOWER_SIZE){
               handleCollision(flowers[i],flowers[j]);
             }
           }
