@@ -70,9 +70,11 @@
     .panel {
       position: absolute;
       background: rgba(255,255,255,0.8);
-      padding: 6px 8px;
+      padding: 4px 8px;
       border-radius: 4px;
       width: 210px;
+      font-size: 20px;
+      line-height: 1.2;
     }
 
     .bar {
@@ -126,7 +128,7 @@
       overlay.style.transformOrigin = 'top left';
       resize();
       const names = ['Alice','Bob','Chlo\u00e9','Damien','Emma','Felix','Gaston','H\u00e9l\u00e8ne','Iris','Julien','Karim','Laura','M\u00e9lanie','Nina','Oscar','Paul','Quentin','Rita','Sophie','Tom','Ulysse','Val\u00e9rie','William','Xavier','Yasmine','Zo\u00e9'];
-      let cake = null;
+      const cakes = [];
 
       function randomName(){
         return names[Math.floor(Math.random()*names.length)];
@@ -176,22 +178,32 @@
           hunger: 100,
           anger: anger,
           love: love,
-          cooldown: 0
+          cooldown: 0,
+          pause: 0
         };
         flowers.push(flower);
+        updateBars(flower);
       }
 
       function spawnCake(){
-        if(cake){ cake.obj.destroy(); }
         const size = CAKE_SIZE;
         const pos = randomPos(size);
         const el = scene.add.text(pos.x, pos.y, '🍰', {fontSize: size + 'px'});
         el.setOrigin(0);
-        cake = {obj: el, x: pos.x, y: pos.y};
+        cakes.push({obj: el, x: pos.x, y: pos.y});
+      }
+
+      function updateBars(f){
+        const loveBar = f.panel.querySelector('.bar.love div');
+        if(loveBar) loveBar.style.width = `${f.love * BAR_WIDTH}px`;
+        const angerBar = f.panel.querySelector('.bar.anger div');
+        if(angerBar) angerBar.style.width = `${f.anger * BAR_WIDTH}px`;
+        const hungerBar = f.panel.querySelector('.bar.hunger div');
+        if(hungerBar) hungerBar.style.width = `${f.hunger * HUNGER_FACTOR}px`;
       }
 
       function showEffect(x, y, emoji){
-        const txt = scene.add.text(x, y, emoji, {fontSize: '32px'});
+        const txt = scene.add.text(x, y, emoji, {fontSize: '64px'});
         txt.setOrigin(0.5);
         scene.tweens.add({
           targets: txt,
@@ -205,18 +217,28 @@
         if(f1.cooldown>0 || f2.cooldown>0) return;
         const midX = (f1.x+f2.x)/2;
         const midY = (f1.y+f2.y)/2 - 20;
-        if(f1.love+f2.love >= f1.anger+f2.anger){
-          showEffect(midX, midY, '❤️');
+        const love = f1.love+f2.love >= f1.anger+f2.anger;
+        const emoji = love ? '❤️' : '⚡';
+        showEffect(midX, midY, emoji);
+        setTimeout(() => showEffect(midX, midY, emoji), 300);
+        if(love){
+          f1.love = Math.min(1, f1.love + 0.05);
+          f2.love = Math.min(1, f2.love + 0.05);
         }else{
-          showEffect(midX, midY, '⚡');
+          f1.anger = Math.min(1, f1.anger + 0.05);
+          f2.anger = Math.min(1, f2.anger + 0.05);
         }
-        f1.cooldown = f2.cooldown = 20;
-        f1.dx = -f1.dx; f1.dy = -f1.dy;
-        f2.dx = -f2.dx; f2.dy = -f2.dy;
-        f1.x += f1.dx * 2;
-        f1.y += f1.dy * 2;
-        f2.x += f2.dx * 2;
-        f2.y += f2.dy * 2;
+        updateBars(f1);
+        updateBars(f2);
+        const dx = f1.x - f2.x;
+        const dy = f1.y - f2.y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        f1.dx = (dx/dist)*2;
+        f1.dy = (dy/dist)*2;
+        f2.dx = (-dx/dist)*2;
+        f2.dy = (-dy/dist)*2;
+        f1.pause = f2.pause = 20;
+        f1.cooldown = f2.cooldown = 40;
       }
 
       function distance(a,b){
@@ -238,26 +260,34 @@
         const h = game.config.height;
         flowers.forEach(f => {
           if(f.cooldown>0) f.cooldown--;
+          if(f.pause>0){
+            f.pause--;
+          }
           f.hunger = Math.max(0, f.hunger - 0.05);
 
-          let moveX = f.dx;
-          let moveY = f.dy;
+          let moveX = f.pause>0 ? 0 : f.dx;
+          let moveY = f.pause>0 ? 0 : f.dy;
 
-          if(cake){
-            const dist = distance(f, cake);
-            if(dist < 150){
-              const dx = cake.x - f.x; const dy = cake.y - f.y;
-              moveX = (dx/dist)*2; moveY = (dy/dist)*2;
-              f.dx = moveX; f.dy = moveY;
-              if(dist < 30){
-                f.hunger = Math.min(100, f.hunger + 50);
-                cake.obj.destroy();
-                cake = null;
-              }
+          let nearCake = null;
+          let nearDist = Infinity;
+          cakes.forEach(c => {
+            const d = distance(f, c);
+            if(d < nearDist){ nearDist = d; nearCake = c; }
+          });
+
+          if(nearCake && nearDist < 150 && f.pause===0){
+            const dx = nearCake.x - f.x; const dy = nearCake.y - f.y;
+            moveX = (dx/nearDist)*2; moveY = (dy/nearDist)*2;
+            f.dx = moveX; f.dy = moveY;
+            if(nearDist < 30){
+              f.hunger = Math.min(100, f.hunger + 50);
+              nearCake.obj.destroy();
+              cakes.splice(cakes.indexOf(nearCake),1);
+              nearCake = null;
             }
           }
 
-          if(f.hunger <= 0 && !(cake && distance(f, cake) < 150)){
+          if(f.hunger <= 0 && !(nearCake && nearDist < 150)){
             moveX = 0; moveY = 0;
           }
 
@@ -268,8 +298,7 @@
           f.y=Math.max(0,Math.min(h-FLOWER_SIZE,f.y));
           f.obj.setPosition(f.x, f.y);
           f.panel.style.transform = `translate(${f.x + PANEL_OFFSET}px, ${f.y}px)`;
-          const bar = f.panel.querySelector('.bar.hunger div');
-          if(bar) bar.style.width = `${f.hunger * HUNGER_FACTOR}px`;
+          updateBars(f);
         });
 
         for(let i=0;i<flowers.length;i++){
