@@ -11,53 +11,114 @@
       margin: 0;
       height: 100vh;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
       background: #f5f5f5;
       color: #333;
       font-family: sans-serif;
     }
-    #game-container {
-      width: 90vw;
-      aspect-ratio: 9 / 16;
-      max-height: 90vh;
-      background-color: #cfe8cf;
+
+    #wrapper {
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+
+    #game-wrapper {
       position: relative;
+      width: 1080px;
+      height: 1920px;
+      max-width: 90vw;
+      max-height: 90vh;
       border-radius: 12px;
       overflow: hidden;
+      background-color: #cfe8cf;
     }
+
+    #game-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    #overlays {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      font-size: 12px;
+    }
+
     #controls {
-      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      margin-left: 15px;
     }
+
     button {
-      margin: 0 5px;
-      padding: 6px 10px;
-      font-size: 16px;
-      border-radius: 6px;
+      margin: 5px 0;
+      padding: 10px 15px;
+      font-size: 20px;
+      border-radius: 8px;
       border: none;
-      background-color: #e0e0e0;
+      background-color: #f9a825;
+      color: white;
+      cursor: pointer;
+    }
+
+    .panel {
+      position: absolute;
+      background: rgba(255,255,255,0.8);
+      padding: 2px 4px;
+      border-radius: 4px;
+      width: 70px;
+    }
+
+    .bar {
+      width: 60px;
+      height: 5px;
+      background: #ddd;
+      margin-top: 2px;
+    }
+
+    .bar div {
+      height: 100%;
+    }
+
+    .bar.hunger div {
+      background: #76c043;
+    }
+
+    .bar.love div {
+      background: #e91e63;
+    }
+
+    .bar.anger div {
+      background: #ff5722;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
   <script>
     window.addEventListener('load', () => {
-      const container = document.getElementById('game-container');
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-
       const config = {
         type: Phaser.AUTO,
-        width: width,
-        height: height,
+        width: 1080,
+        height: 1920,
         parent: 'game-container',
         backgroundColor: '#cfe8cf',
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH
+        },
         scene: { preload, create, update }
       };
 
       const game = new Phaser.Game(config);
       let scene;
       const flowers = [];
+      let flowerCount = 0;
+      const overlay = document.getElementById('overlays');
       let cake = null;
 
       function randomPos(size){
@@ -72,16 +133,28 @@
         const pos = randomPos(size);
         const el = scene.add.text(pos.x, pos.y, '🌹', {fontSize: size + 'px'});
         el.setOrigin(0);
+        const panel = document.createElement('div');
+        panel.className = 'panel';
+        const name = 'Rose ' + (++flowerCount);
+        const love = Math.random();
+        const anger = Math.random();
+        panel.innerHTML = `${name}
+          <div class="bar love"><div style="width:${love*60}px;background:#e91e63"></div></div>
+          <div class="bar anger"><div style="width:${anger*60}px;background:#ff5722"></div></div>
+          <div class="bar hunger"><div></div></div>`;
+        overlay.appendChild(panel);
+
         const flower = {
           obj: el,
+          panel: panel,
           x: pos.x,
           y: pos.y,
           dx: (Math.random()*2-1)*2,
           dy: (Math.random()*2-1)*2,
-          hunger: 0,
-          anger: Math.random(),
-          love: Math.random(),
-          pause: 0
+          hunger: 100,
+          anger: anger,
+          love: love,
+          cooldown: 0
         };
         flowers.push(flower);
       }
@@ -107,7 +180,7 @@
       }
 
       function handleCollision(f1,f2){
-        if(f1.pause>0 || f2.pause>0) return;
+        if(f1.cooldown>0 || f2.cooldown>0) return;
         const midX = (f1.x+f2.x)/2;
         const midY = (f1.y+f2.y)/2 - 20;
         if(f1.love+f2.love >= f1.anger+f2.anger){
@@ -115,9 +188,13 @@
         }else{
           showEffect(midX, midY, '⚡');
         }
-        f1.pause = f2.pause = 20;
+        f1.cooldown = f2.cooldown = 20;
         f1.dx = -f1.dx; f1.dy = -f1.dy;
         f2.dx = -f2.dx; f2.dy = -f2.dy;
+        f1.x += f1.dx * 2;
+        f1.y += f1.dy * 2;
+        f2.x += f2.dx * 2;
+        f2.y += f2.dy * 2;
       }
 
       function distance(a,b){
@@ -138,23 +215,39 @@
         const w = game.config.width;
         const h = game.config.height;
         flowers.forEach(f => {
-          if(f.pause>0){ f.pause--; return; }
+          if(f.cooldown>0) f.cooldown--;
+          f.hunger = Math.max(0, f.hunger - 0.05);
+
+          let moveX = f.dx;
+          let moveY = f.dy;
+
           if(cake){
-            const dx=cake.x-f.x; const dy=cake.y-f.y;
-            const d=Math.sqrt(dx*dx+dy*dy);
-            f.dx=(dx/d)*2; f.dy=(dy/d)*2;
-            if(d<30){
-              f.hunger+=1;
-              cake.obj.destroy();
-              cake=null;
+            const dist = distance(f, cake);
+            if(dist < 150){
+              const dx = cake.x - f.x; const dy = cake.y - f.y;
+              moveX = (dx/dist)*2; moveY = (dy/dist)*2;
+              f.dx = moveX; f.dy = moveY;
+              if(dist < 30){
+                f.hunger = Math.min(100, f.hunger + 50);
+                cake.obj.destroy();
+                cake = null;
+              }
             }
           }
-          f.x += f.dx; f.y += f.dy;
+
+          if(f.hunger <= 0 && !(cake && distance(f, cake) < 150)){
+            moveX = 0; moveY = 0;
+          }
+
+          f.x += moveX; f.y += moveY;
           if(f.x<0||f.x>w-48) f.dx=-f.dx;
           if(f.y<0||f.y>h-48) f.dy=-f.dy;
           f.x=Math.max(0,Math.min(w-48,f.x));
           f.y=Math.max(0,Math.min(h-48,f.y));
           f.obj.setPosition(f.x, f.y);
+          f.panel.style.transform = `translate(${f.x + 52}px, ${f.y}px)`;
+          const bar = f.panel.querySelector('.bar.hunger div');
+          if(bar) bar.style.width = `${f.hunger * 0.6}px`;
         });
 
         for(let i=0;i<flowers.length;i++){
@@ -169,10 +262,15 @@
   </script>
 </head>
 <body>
-  <div id="game-container"></div>
-  <div id="controls">
-    <button id="addFlower">Ajouter une rose</button>
-    <button id="addCake">Gâteau</button>
+  <div id="wrapper">
+    <div id="game-wrapper">
+      <div id="game-container"></div>
+      <div id="overlays"></div>
+    </div>
+    <div id="controls">
+      <button id="addFlower">Ajouter une rose</button>
+      <button id="addCake">Gâteau</button>
+    </div>
   </div>
 </body>
 </html>
