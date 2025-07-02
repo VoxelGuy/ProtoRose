@@ -14,63 +14,66 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background: #222;
-      color: #fff;
+      background: #f5f5f5;
+      color: #333;
       font-family: sans-serif;
     }
-    #controls {
-      margin-bottom: 10px;
-    }
-    #container {
-      width: 700px;
-      height: 700px;
-      background-color: #005500;
+    #game-container {
+      width: 90vw;
+      aspect-ratio: 9 / 16;
+      max-height: 90vh;
+      background-color: #cfe8cf;
       position: relative;
-      overflow: hidden;
       border-radius: 12px;
+      overflow: hidden;
     }
-    .flower {
-      position: absolute;
-      font-size: 48px;
-      user-select: none;
+    #controls {
+      margin-top: 10px;
     }
-    .cake {
-      position: absolute;
-      font-size: 40px;
-      pointer-events: none;
-    }
-    .effect {
-      position: absolute;
-      font-size: 32px;
-      pointer-events: none;
-      animation: fade 1s forwards;
-    }
-    @keyframes fade {
-      from { opacity: 1; }
-      to { opacity: 0; }
+    button {
+      margin: 0 5px;
+      padding: 6px 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      background-color: #e0e0e0;
     }
   </style>
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
   <script>
-    $(function(){
-      const container = $('#container');
+    window.addEventListener('load', () => {
+      const container = document.getElementById('game-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      const config = {
+        type: Phaser.AUTO,
+        width: width,
+        height: height,
+        parent: 'game-container',
+        backgroundColor: '#cfe8cf',
+        scene: { preload, create, update }
+      };
+
+      const game = new Phaser.Game(config);
+      let scene;
       const flowers = [];
       let cake = null;
 
       function randomPos(size){
         return {
-          x: Math.random() * (container.width() - size),
-          y: Math.random() * (container.height() - size)
+          x: Math.random() * (game.config.width - size),
+          y: Math.random() * (game.config.height - size)
         };
       }
 
       function createFlower(){
-        const el = $('<div class="flower">\ud83c\udf39<\/div>');
-        const pos = randomPos(48);
-        el.css({left: pos.x, top: pos.y});
-        container.append(el);
+        const size = 48;
+        const pos = randomPos(size);
+        const el = scene.add.text(pos.x, pos.y, '🌹', {fontSize: size + 'px'});
+        el.setOrigin(0);
         const flower = {
-          el: el,
+          obj: el,
           x: pos.x,
           y: pos.y,
           dx: (Math.random()*2-1)*2,
@@ -84,19 +87,23 @@
       }
 
       function spawnCake(){
-        if(cake){ cake.el.remove(); }
-        const el = $('<div class="cake">\ud83c\udf70<\/div>');
-        const pos = randomPos(40);
-        el.css({left: pos.x, top: pos.y});
-        container.append(el);
-        cake = {el: el, x: pos.x, y: pos.y};
+        if(cake){ cake.obj.destroy(); }
+        const size = 40;
+        const pos = randomPos(size);
+        const el = scene.add.text(pos.x, pos.y, '🍰', {fontSize: size + 'px'});
+        el.setOrigin(0);
+        cake = {obj: el, x: pos.x, y: pos.y};
       }
 
-      function showEffect(x,y,emoji){
-        const el = $('<div class="effect">'+emoji+'<\/div>');
-        el.css({left:x, top:y});
-        container.append(el);
-        setTimeout(()=>el.remove(),1000);
+      function showEffect(x, y, emoji){
+        const txt = scene.add.text(x, y, emoji, {fontSize: '32px'});
+        txt.setOrigin(0.5);
+        scene.tweens.add({
+          targets: txt,
+          alpha: 0,
+          duration: 1000,
+          onComplete: () => txt.destroy()
+        });
       }
 
       function handleCollision(f1,f2){
@@ -104,11 +111,11 @@
         const midX = (f1.x+f2.x)/2;
         const midY = (f1.y+f2.y)/2 - 20;
         if(f1.love+f2.love >= f1.anger+f2.anger){
-          showEffect(midX,midY,'\u2764\ufe0f');
+          showEffect(midX, midY, '❤️');
         }else{
-          showEffect(midX,midY,'\u26a1');
+          showEffect(midX, midY, '⚡');
         }
-        f1.pause = f2.pause = 20; // ~1s
+        f1.pause = f2.pause = 20;
         f1.dx = -f1.dx; f1.dy = -f1.dy;
         f2.dx = -f2.dx; f2.dy = -f2.dy;
       }
@@ -117,50 +124,55 @@
         const dx=a.x-b.x; const dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
       }
 
-      function move(){
-        flowers.forEach(f=>{
+      function preload(){ }
+
+      function create(){
+        scene = this;
+        createFlower();
+        createFlower();
+        document.getElementById('addFlower').addEventListener('click', createFlower);
+        document.getElementById('addCake').addEventListener('click', spawnCake);
+      }
+
+      function update(){
+        const w = game.config.width;
+        const h = game.config.height;
+        flowers.forEach(f => {
           if(f.pause>0){ f.pause--; return; }
           if(cake){
             const dx=cake.x-f.x; const dy=cake.y-f.y;
             const d=Math.sqrt(dx*dx+dy*dy);
-            f.dx = (dx/d)*2; f.dy=(dy/d)*2;
+            f.dx=(dx/d)*2; f.dy=(dy/d)*2;
             if(d<30){
-              f.hunger += 1;
-              cake.el.remove();
+              f.hunger+=1;
+              cake.obj.destroy();
               cake=null;
             }
           }
           f.x += f.dx; f.y += f.dy;
-          if(f.x<0||f.x>container.width()-48) f.dx=-f.dx;
-          if(f.y<0||f.y>container.height()-48) f.dy=-f.dy;
-          f.x=Math.max(0,Math.min(container.width()-48,f.x));
-          f.y=Math.max(0,Math.min(container.height()-48,f.y));
-          f.el.css({left:f.x, top:f.y});
+          if(f.x<0||f.x>w-48) f.dx=-f.dx;
+          if(f.y<0||f.y>h-48) f.dy=-f.dy;
+          f.x=Math.max(0,Math.min(w-48,f.x));
+          f.y=Math.max(0,Math.min(h-48,f.y));
+          f.obj.setPosition(f.x, f.y);
         });
 
         for(let i=0;i<flowers.length;i++){
           for(let j=i+1;j<flowers.length;j++){
-            if(distance(flowers[i],flowers[j]) < 48){
+            if(distance(flowers[i],flowers[j])<48){
               handleCollision(flowers[i],flowers[j]);
             }
           }
         }
       }
-
-      $('#addFlower').on('click', createFlower);
-      $('#addCake').on('click', spawnCake);
-
-      createFlower();
-      createFlower();
-      setInterval(move,50);
     });
   </script>
 </head>
 <body>
+  <div id="game-container"></div>
   <div id="controls">
     <button id="addFlower">Ajouter une rose</button>
     <button id="addCake">Gâteau</button>
   </div>
-  <div id="container"></div>
 </body>
 </html>
