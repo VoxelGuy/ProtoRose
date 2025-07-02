@@ -140,6 +140,21 @@
       }
       window.addEventListener('resize', resize);
 
+      function randomName(){
+        return names[Math.floor(Math.random()*names.length)];
+      }
+
+      function resize(){
+        const ratio = 1080/1920;
+        const h = window.innerHeight * 0.9;
+        const w = h * ratio;
+        const wrapper = document.getElementById('game-wrapper');
+        wrapper.style.height = h + 'px';
+        wrapper.style.width = w + 'px';
+        overlay.style.transform = 'scale(' + (h/1920) + ')';
+      }
+      window.addEventListener('resize', resize);
+
       function randomPos(size){
         return {
           x: Math.random() * (game.config.width - size),
